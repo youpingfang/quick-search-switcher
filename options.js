@@ -8,6 +8,7 @@ const quickButtonsEl = document.getElementById("quick-buttons");
 const maxButtonsInput = document.getElementById("max-buttons");
 const themeSelect = document.getElementById("theme");
 const languageSelect = document.getElementById("language");
+const floatPositionSelect = document.getElementById("float-position");
 
 const DEFAULT_ENGINES = [
   {
@@ -77,6 +78,9 @@ const I18N = {
     quick_add: "Quick Add",
     display: "Display",
     floating_count: "Floating buttons count",
+    float_position: "Floating position",
+    float_top: "Above selection",
+    float_bottom: "Below selection",
     add_engine: "Add Engine",
     save: "Save",
     reset: "Reset Defaults",
@@ -112,6 +116,9 @@ const I18N = {
     quick_add: "快速添加",
     display: "显示",
     floating_count: "浮层按钮数量",
+    float_position: "浮层位置",
+    float_top: "上方",
+    float_bottom: "下方",
     add_engine: "添加引擎",
     save: "保存",
     reset: "恢复默认",
@@ -141,7 +148,8 @@ let currentSettings = {
   maxButtons: 3,
   theme: "system",
   lang: "zh",
-  autoSaveNotified: false
+  autoSaveNotified: false,
+  floatPosition: "top"
 };
 
 function t(key) {
@@ -331,13 +339,15 @@ async function loadEngines() {
     maxButtons: 3,
     theme: "system",
     lang: "zh",
-    autoSaveNotified: false
+    autoSaveNotified: false,
+    floatPosition: "top"
   };
   currentSettings = {
     maxButtons: 3,
     theme: "system",
     lang: "zh",
     autoSaveNotified: false,
+    floatPosition: "top",
     ...settings
   };
 
@@ -350,6 +360,7 @@ async function loadEngines() {
   applyTheme(currentSettings.theme || "system");
   languageSelect.value = currentSettings.lang || "en";
   applyLanguage(currentSettings.lang || "en");
+  floatPositionSelect.value = currentSettings.floatPosition || "top";
 }
 
 function getEnginesFromUI() {
@@ -369,7 +380,8 @@ function getSettingsFromUI() {
     ...currentSettings,
     maxButtons,
     theme: themeSelect.value || "system",
-    lang: languageSelect.value || "en"
+    lang: languageSelect.value || "en",
+    floatPosition: floatPositionSelect.value || "top"
   };
 }
 
@@ -408,6 +420,7 @@ resetBtn.addEventListener("click", async () => {
 maxButtonsInput.addEventListener("input", scheduleAutosave);
 themeSelect.addEventListener("change", scheduleAutosave);
 languageSelect.addEventListener("change", scheduleAutosave);
+floatPositionSelect.addEventListener("change", scheduleAutosave);
 
 window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
   if (themeSelect.value === "system") {

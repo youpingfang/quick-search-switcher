@@ -140,14 +140,36 @@ body.theme-dark .quick-buttons button {
   color: var(--text);
 }
 
-.setting-row input {
-  width: 90px;
+.setting-row input,
+.setting-row select {
+  width: 140px;
+  height: 38px;
+  padding: 8px 10px;
+  box-sizing: border-box;
 }
 
 body.theme-dark .setting-row input {
   background: #0f1417;
   border-color: #2b3a42;
   color: #e6e6e6;
+}
+
+body.theme-dark .setting-row select {
+  background: #0f1417;
+  border-color: #2b3a42;
+  color: #e6e6e6;
+}
+
+.setting-row + .setting-row {
+  margin-top: 10px;
+}
+
+.setting-row select {
+  font: 14px/1.2 "IBM Plex Sans", "Segoe UI", sans-serif;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fffaf5;
+  color: var(--text);
 }
 
 .support {
