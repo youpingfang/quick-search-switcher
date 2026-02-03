@@ -6,7 +6,9 @@
 
 ## 功能
 - 选中文本后显示浮层按钮（默认显示前 3 个，可调数量）
+- 一键复制选中文本
 - 浮层位置可选（上方/下方）
+- 新标签位置可选（紧跟当前标签 / 窗口末尾）
 - 点击“更多”下拉切换其它引擎，并可进入设置页
 - 右键菜单也提供搜索引擎入口
 - 引擎可自定义、排序（拖拽 / 上下移动）
@@ -31,6 +33,9 @@ https://www.7longwen.com/d/zen-me-zai-chrome-shang-an-zhuang-cha-jian.html
 - 浮层按钮数量、浮层位置可配置
 - 引擎列表可添加/删除/排序
 - 支持快速添加常用引擎
+
+## 默认/快速添加引擎
+Google、Bing、Wikipedia、Zhihu、Bilibili、GitHub、Taobao、JD、Twitter、YouTube、Google Scholar
 
 ## 文件结构
 - `manifest.json` 扩展清单
