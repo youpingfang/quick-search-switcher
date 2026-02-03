@@ -14,6 +14,7 @@ async function loadEngines() {
   const settings = result.settings || {};
   maxButtons = Number.isFinite(settings.maxButtons) ? settings.maxButtons : 3;
   if (maxButtons < 1) maxButtons = 1;
+  window.__mesFloatPosition = settings.floatPosition || "top";
   enginesCache = engines.filter((e) => e && e.name && e.template);
 }
 
@@ -36,6 +37,27 @@ function renderButtons(selectionText) {
   if (!floatEl) floatEl = createFloat();
   floatEl.innerHTML = "";
   const engines = getTopEngines();
+
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.textContent = "复制";
+  copyBtn.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(selectionText);
+    } catch (err) {
+      const textarea = document.createElement("textarea");
+      textarea.value = selectionText;
+      textarea.style.position = "fixed";
+      textarea.style.left = "-9999px";
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      textarea.remove();
+    }
+    clearFloat();
+  });
+  floatEl.appendChild(copyBtn);
 
   engines.forEach((engine) => {
     const btn = document.createElement("button");
@@ -100,20 +122,26 @@ function renderButtons(selectionText) {
     moreWrap.appendChild(moreBtn);
     floatEl.appendChild(moreWrap);
   }
+
 }
 
 function positionFloat(rect) {
   if (!floatEl) return;
-  const padding = 8;
+  const padding = 16;
   const floatWidth = floatEl.offsetWidth;
   const floatHeight = floatEl.offsetHeight;
   const viewportBottom = window.scrollY + window.innerHeight;
 
-  let top = window.scrollY + rect.bottom + padding;
-  if (top + floatHeight > viewportBottom - padding) {
+  const prefer = window.__mesFloatPosition || "top";
+  let top = prefer === "bottom"
+    ? window.scrollY + rect.bottom + padding
+    : window.scrollY + rect.top - floatHeight - padding;
+  if (prefer === "bottom" && top + floatHeight > viewportBottom - padding) {
     top = window.scrollY + rect.top - floatHeight - padding;
+  } else if (prefer === "top" && top < window.scrollY + padding) {
+    top = window.scrollY + rect.bottom + padding;
   }
-  top = Math.max(top, window.scrollY + padding);
+  top = Math.min(top, viewportBottom - floatHeight - padding);
 
   let left = window.scrollX + rect.left;
   const viewportRight = window.scrollX + window.innerWidth;
