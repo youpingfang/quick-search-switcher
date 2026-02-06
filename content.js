@@ -5,6 +5,9 @@ let lastSelection = "";
 let dropdownEl = null;
 let uiLang = "zh";
 let translateProvider = "google";
+let floatTimeoutMs = 5000;
+let hideTimer = null;
+const RETURN_TIMEOUT_MS = 3000;
 
 const LABELS = {
   zh: {
@@ -40,6 +43,8 @@ async function loadEngines() {
   window.__mesFloatPosition = settings.floatPosition || "top";
   uiLang = settings.lang || "zh";
   translateProvider = settings.translateProvider || "google";
+  const timeoutSec = Number.isFinite(settings.floatTimeout) ? settings.floatTimeout : 5;
+  floatTimeoutMs = Math.max(1000, timeoutSec * 1000);
   enginesCache = engines.filter((e) => e && e.name && e.template);
 }
 
@@ -47,6 +52,15 @@ function createFloat() {
   const el = document.createElement("div");
   el.className = "mes-float";
   el.style.display = "none";
+  el.addEventListener("mouseenter", () => {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  });
+  el.addEventListener("mouseleave", () => {
+    startHideTimer();
+  });
   document.body.appendChild(el);
   return el;
 }
@@ -56,6 +70,17 @@ function clearFloat() {
   floatEl.style.display = "none";
   floatEl.innerHTML = "";
   dropdownEl = null;
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+}
+
+function startHideTimer(timeoutMs = floatTimeoutMs) {
+  if (hideTimer) clearTimeout(hideTimer);
+  hideTimer = setTimeout(() => {
+    clearFloat();
+  }, timeoutMs);
 }
 
 function renderButtons(selectionText) {
@@ -222,6 +247,8 @@ function handleSelection() {
   renderButtons(text);
   floatEl.style.display = "flex";
   positionFloat(rect);
+
+  startHideTimer();
 }
 
 document.addEventListener("mouseup", (event) => {
@@ -237,6 +264,21 @@ document.addEventListener("mousedown", (event) => {
   if (floatEl && floatEl.contains(event.target)) return;
   if (!window.getSelection()?.isCollapsed && lastSelection) return;
   clearFloat();
+});
+
+document.addEventListener("mousemove", (event) => {
+  if (floatEl && floatEl.contains(event.target)) {
+    if (hideTimer) {
+      clearTimeout(hideTimer);
+      hideTimer = null;
+    }
+  }
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && floatEl && floatEl.style.display === "flex") {
+    startHideTimer(RETURN_TIMEOUT_MS);
+  }
 });
 
 chrome.storage.onChanged.addListener((changes, areaName) => {
