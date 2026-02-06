@@ -1,5 +1,7 @@
 # Quick Search Switcher（自定义搜索引擎）
 
+[中文](README.md) | [English](README_EN.md)
+
 一个轻量的 Chrome/Edge 扩展：选中文本后在页面中直接切换搜索引擎，一步到位搜索，减少右键菜单带来的打断感。
 
 ![选中文字后浮层](assets/截屏.png)
