@@ -26,17 +26,40 @@ async function getEngines() {
   return result.engines;
 }
 
-async function rebuildMenus() {
-  await chrome.contextMenus.removeAll();
-  const engines = await getEngines();
+let rebuildInFlight = false;
+let rebuildPending = false;
 
-  engines.forEach((engine, index) => {
-    if (!engine || !engine.name || !engine.template) return;
-    chrome.contextMenus.create({
-      id: `engine-${index}`,
-      title: `${index + 1}. ${engine.name}`,
-      contexts: ["selection"]
-    });
+function rebuildMenus() {
+  if (rebuildInFlight) {
+    rebuildPending = true;
+    return;
+  }
+  rebuildInFlight = true;
+  chrome.contextMenus.removeAll(() => {
+    getEngines()
+      .then((engines) => {
+        engines.forEach((engine, index) => {
+          if (!engine || !engine.name || !engine.template) return;
+          chrome.contextMenus.create(
+            {
+              id: `engine-${index}`,
+              title: `${index + 1}. ${engine.name}`,
+              contexts: ["selection"]
+            },
+            () => {
+              // Ignore duplicate id errors if they happen.
+              void chrome.runtime.lastError;
+            }
+          );
+        });
+      })
+      .finally(() => {
+        rebuildInFlight = false;
+        if (rebuildPending) {
+          rebuildPending = false;
+          rebuildMenus();
+        }
+      });
   });
 }
 

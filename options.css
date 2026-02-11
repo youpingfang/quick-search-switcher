@@ -121,6 +121,12 @@ body.theme-dark .quick-buttons button {
   border: 1px solid var(--border);
 }
 
+body.theme-dark .settings {
+  background: rgba(21, 27, 30, 0.85);
+  border-color: #243036;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
 .settings h2 {
   margin: 0 0 10px;
   font-size: 16px;
