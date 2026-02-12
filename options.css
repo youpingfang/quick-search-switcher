@@ -87,6 +87,18 @@ body.theme-dark .theme-switch select {
   margin: 8px 0 18px;
 }
 
+.list-header {
+  margin: 6px 0 10px;
+}
+
+.list-header h2 {
+  margin: 0;
+  font-size: 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+}
+
 .quick-add h2 {
   margin: 12px 0 8px;
   font-size: 16px;
@@ -168,6 +180,10 @@ body.theme-dark .setting-row select {
 
 .setting-row + .setting-row {
   margin-top: 10px;
+}
+
+.row.action-row .remove {
+  display: none;
 }
 
 .setting-row select {

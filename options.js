@@ -30,6 +30,8 @@ const DEFAULT_ENGINES = [
   }
 ];
 
+const DEFAULT_FLOAT_ORDER = ["copy", "translate"];
+
 const QUICK_ENGINES = [
   {
     name: "Google",
@@ -93,6 +95,7 @@ const I18N = {
     lang_zh: "Chinese",
     hint: "Each engine must include a name and a URL template with %s.",
     quick_add: "Quick Add",
+    engine_list_title: "Search Engine List",
     display: "Display",
     floating_count: "Floating buttons count",
     float_position: "Floating position",
@@ -101,6 +104,12 @@ const I18N = {
     tab_position: "New tab position",
     tab_next: "Next to current tab",
     tab_end: "End of window",
+    float_order: "Floating buttons order",
+    float_order_hint: "Drag to reorder the floating buttons.",
+    order_copy: "Copy",
+    order_translate: "Translate",
+    order_engines: "Search engines",
+    order_builtin: "Built-in",
     add_engine: "Add Engine",
     save: "Save",
     reset: "Reset Defaults",
@@ -135,6 +144,7 @@ const I18N = {
     lang_zh: "中文",
     hint: "每个引擎必须包含名称和带 %s 的模板 URL。",
     quick_add: "快速添加",
+    engine_list_title: "搜索引擎列表",
     display: "显示",
     floating_count: "浮层按钮数量",
     float_position: "浮层位置",
@@ -143,6 +153,12 @@ const I18N = {
     tab_position: "新标签位置",
     tab_next: "紧跟当前标签",
     tab_end: "窗口末尾",
+    float_order: "浮窗按钮顺序",
+    float_order_hint: "拖动以调整浮窗按钮顺序。",
+    order_copy: "复制",
+    order_translate: "翻译",
+    order_engines: "搜索引擎",
+    order_builtin: "内置",
     add_engine: "添加引擎",
     save: "保存",
     reset: "恢复默认",
@@ -175,7 +191,8 @@ let currentSettings = {
   lang: "zh",
   autoSaveNotified: false,
   floatPosition: "top",
-  tabPosition: "next"
+  tabPosition: "next",
+  floatOrder: DEFAULT_FLOAT_ORDER.slice()
 };
 
 function t(key) {
@@ -193,6 +210,7 @@ function applyLanguage(lang) {
       t(el.getAttribute("data-i18n-placeholder"))
     );
   });
+  updateActionRowLabels();
 }
 
 function setStatus(messageKey) {
@@ -222,12 +240,13 @@ let autosaveTimer = null;
 function scheduleAutosave() {
   if (autosaveTimer) clearTimeout(autosaveTimer);
   autosaveTimer = setTimeout(async () => {
-    const engines = getEnginesFromUI();
+    const { engines, floatOrder } = getEnginesAndOrderFromUI();
     if (!engines.length) {
       setStatus("status_invalid");
       return;
     }
-    const settings = getSettingsFromUI();
+    const settings = { ...getSettingsFromUI(), floatOrder };
+    currentSettings = { ...settings };
     if (!settings.autoSaveNotified) {
       settings.autoSaveNotified = true;
       setStatus("status_autosaved_once");
@@ -240,6 +259,7 @@ function scheduleAutosave() {
 
 function createRow(engine = { name: "", template: "" }) {
   const node = rowTemplate.content.firstElementChild.cloneNode(true);
+  node.dataset.kind = "engine";
   const nameInput = node.querySelector(".name");
   const templateInput = node.querySelector(".template");
   const removeBtn = node.querySelector(".remove");
@@ -312,6 +332,10 @@ function createRow(engine = { name: "", template: "" }) {
   return node;
 }
 
+function insertEngineRow(row) {
+  listEl.appendChild(row);
+}
+
 function appendEngine(engine) {
   const existing = getEnginesFromUI();
   const duplicate = existing.some(
@@ -323,7 +347,7 @@ function appendEngine(engine) {
     setStatus("status_exists");
     return;
   }
-  listEl.appendChild(createRow(engine));
+  insertEngineRow(createRow(engine));
   scheduleAutosave();
 }
 
@@ -336,6 +360,108 @@ function renderQuickButtons() {
     btn.textContent = engine.name;
     btn.addEventListener("click", () => appendEngine(engine));
     quickButtonsEl.appendChild(btn);
+  });
+}
+
+const FLOAT_ORDER_ITEMS = ["copy", "translate"];
+
+function normalizeFloatOrder(order) {
+  const result = [];
+  const seen = new Set();
+  (order || []).forEach((item) => {
+    if (!FLOAT_ORDER_ITEMS.includes(item) && !item.startsWith("engine:")) return;
+    if (seen.has(item)) return;
+    seen.add(item);
+    result.push(item);
+  });
+  FLOAT_ORDER_ITEMS.forEach((item) => {
+    if (!seen.has(item)) result.push(item);
+  });
+  return result;
+}
+
+function createActionRow(id) {
+  const node = rowTemplate.content.firstElementChild.cloneNode(true);
+  node.dataset.kind = "action";
+  node.dataset.action = id;
+  node.classList.add("action-row");
+
+  const nameInput = node.querySelector(".name");
+  const templateInput = node.querySelector(".template");
+  const removeBtn = node.querySelector(".remove");
+  const moveUpBtn = node.querySelector(".move-up");
+  const moveDownBtn = node.querySelector(".move-down");
+
+  nameInput.value = t(`order_${id}`);
+  templateInput.value = t("order_builtin");
+  nameInput.disabled = true;
+  templateInput.disabled = true;
+  nameInput.readOnly = true;
+  templateInput.readOnly = true;
+  if (removeBtn) removeBtn.style.display = "none";
+
+  node.addEventListener("dragstart", (event) => {
+    node.classList.add("dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", "");
+  });
+
+  node.addEventListener("dragend", () => {
+    node.classList.remove("dragging");
+    scheduleAutosave();
+  });
+
+  moveUpBtn.addEventListener("click", () => {
+    const previous = node.previousElementSibling;
+    if (previous) {
+      listEl.insertBefore(node, previous);
+      scheduleAutosave();
+    }
+  });
+
+  moveDownBtn.addEventListener("click", () => {
+    const next = node.nextElementSibling;
+    if (next) {
+      listEl.insertBefore(next, node);
+      scheduleAutosave();
+    }
+  });
+
+  return node;
+}
+
+function updateActionRowLabels() {
+  const rows = listEl.querySelectorAll(".row[data-kind='action']");
+  rows.forEach((row) => {
+    const id = row.dataset.action;
+    const nameInput = row.querySelector(".name");
+    if (nameInput) nameInput.value = t(`order_${id}`);
+  });
+}
+
+function renderList(engines, order) {
+  listEl.innerHTML = "";
+  const normalized = normalizeFloatOrder(order);
+  const used = new Set();
+
+  normalized.forEach((item) => {
+    if (FLOAT_ORDER_ITEMS.includes(item)) {
+      const row = createActionRow(item);
+      listEl.appendChild(row);
+      return;
+    }
+    if (item.startsWith("engine:")) {
+      const idx = Number(item.slice("engine:".length));
+      if (!Number.isFinite(idx) || idx < 0 || idx >= engines.length) return;
+      if (used.has(idx)) return;
+      used.add(idx);
+      listEl.appendChild(createRow(engines[idx]));
+    }
+  });
+
+  engines.forEach((engine, idx) => {
+    if (used.has(idx)) return;
+    listEl.appendChild(createRow(engine));
   });
 }
 
@@ -377,7 +503,8 @@ async function loadEngines() {
     lang: "zh",
     autoSaveNotified: false,
     floatPosition: "top",
-    tabPosition: "next"
+    tabPosition: "next",
+    floatOrder: DEFAULT_FLOAT_ORDER.slice()
   };
   currentSettings = {
     maxButtons: 3,
@@ -386,11 +513,12 @@ async function loadEngines() {
     autoSaveNotified: false,
     floatPosition: "top",
     tabPosition: "next",
+    floatOrder: DEFAULT_FLOAT_ORDER.slice(),
     ...settings
   };
+  currentSettings.floatOrder = normalizeFloatOrder(currentSettings.floatOrder);
 
-  listEl.innerHTML = "";
-  engines.forEach((engine) => listEl.appendChild(createRow(engine)));
+  renderList(engines, currentSettings.floatOrder);
   maxButtonsInput.value = Number.isFinite(currentSettings.maxButtons)
     ? currentSettings.maxButtons
     : 3;
@@ -400,16 +528,41 @@ async function loadEngines() {
   applyLanguage(currentSettings.lang || "en");
   floatPositionSelect.value = currentSettings.floatPosition || "top";
   tabPositionSelect.value = currentSettings.tabPosition || "next";
+  renderList(engines, currentSettings.floatOrder);
 }
 
 function getEnginesFromUI() {
-  const rows = Array.from(listEl.querySelectorAll(".row"));
+  const rows = Array.from(listEl.querySelectorAll(".row[data-kind='engine']"));
   return rows
     .map((row) => ({
       name: row.querySelector(".name").value.trim(),
       template: row.querySelector(".template").value.trim()
     }))
     .filter((engine) => engine.name && engine.template.includes("%s"));
+}
+
+function getEnginesAndOrderFromUI() {
+  const rows = Array.from(listEl.querySelectorAll(".row"));
+  const engines = [];
+  const order = [];
+  rows.forEach((row) => {
+    const kind = row.dataset.kind || "engine";
+    if (kind === "action") {
+      const actionId = row.dataset.action;
+      if (actionId) order.push(actionId);
+      return;
+    }
+    const name = row.querySelector(".name").value.trim();
+    const template = row.querySelector(".template").value.trim();
+    if (!name || !template.includes("%s")) return;
+    const idx = engines.length;
+    engines.push({ name, template });
+    order.push(`engine:${idx}`);
+  });
+  return {
+    engines,
+    floatOrder: normalizeFloatOrder(order)
+  };
 }
 
 function getSettingsFromUI() {
@@ -421,22 +574,23 @@ function getSettingsFromUI() {
     theme: themeSelect.value || "system",
     lang: languageSelect.value || "en",
     floatPosition: floatPositionSelect.value || "top",
-    tabPosition: tabPositionSelect.value || "next"
+    tabPosition: tabPositionSelect.value || "next",
+    floatOrder: currentSettings.floatOrder || DEFAULT_FLOAT_ORDER.slice()
   };
 }
 
 addBtn.addEventListener("click", () => {
-  listEl.appendChild(createRow());
+  insertEngineRow(createRow());
   scheduleAutosave();
 });
 
 saveBtn.addEventListener("click", async () => {
-  const engines = getEnginesFromUI();
+  const { engines, floatOrder } = getEnginesAndOrderFromUI();
   if (!engines.length) {
     setStatus("status_invalid");
     return;
   }
-  const settings = getSettingsFromUI();
+  const settings = { ...getSettingsFromUI(), floatOrder };
   await chrome.storage.sync.set({ engines, settings });
   setStatus("status_saved");
   applyTheme(settings.theme || "system");

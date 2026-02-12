@@ -32,11 +32,6 @@
         每次页面选择文字搜索，却还要右键翻一长串菜单，真的很打断思路。我做这个小工具，目的就是想让搜索更顺手，换个引擎直接搜索一步到位，减少搜索的痛苦感，节省你的精力。如果它确实帮到你，也欢迎扫二维码支持一下，或者添加好友发个红包，我会继续把它做得更好！
       </p>
 
-      <section class="quick-add">
-        <h2 data-i18n="quick_add">Quick Add</h2>
-        <div class="quick-buttons" id="quick-buttons"></div>
-      </section>
-
       <section class="support support-float support-float-right" id="support-wechat">
         <h2 data-i18n="wechat_title">WeChat</h2>
         <p data-i18n="wechat_desc">WeChat add-friend QR code.</p>
@@ -80,6 +75,14 @@
         </div>
       </section>
 
+      <section class="quick-add">
+        <h2 data-i18n="quick_add">Quick Add</h2>
+        <div class="quick-buttons" id="quick-buttons"></div>
+      </section>
+
+      <div class="list-header">
+        <h2 data-i18n="engine_list_title">Search Engine List</h2>
+      </div>
       <div id="list"></div>
 
       <div class="actions">
@@ -94,7 +97,7 @@
     <template id="row-template">
       <div class="row" draggable="true">
         <div class="reorder">
-          <button class="drag" title="Drag to reorder" aria-label="Drag to reorder">≡</button>
+          <button class="drag" title="Drag to reorder" aria-label="Drag to reorder">☝️</button>
           <div class="move">
             <button class="move-up" title="Move up" aria-label="Move up">↑</button>
             <button class="move-down" title="Move down" aria-label="Move down">↓</button>

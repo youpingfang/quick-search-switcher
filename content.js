@@ -8,6 +8,8 @@ let translateProvider = "google";
 let floatTimeoutMs = 5000;
 let hideTimer = null;
 const RETURN_TIMEOUT_MS = 3000;
+const DEFAULT_FLOAT_ORDER = ["copy", "translate"];
+let floatOrder = DEFAULT_FLOAT_ORDER.slice();
 
 const LABELS = {
   zh: {
@@ -34,15 +36,46 @@ function getTopEngines() {
   return enginesCache.slice(0, maxButtons);
 }
 
+function normalizeFloatOrder(order) {
+  const items = ["copy", "translate", "engines", "more"];
+  const result = [];
+  const seen = new Set();
+  let hasEngineItems = false;
+  (order || []).forEach((item) => {
+    if (typeof item !== "string") return;
+    if (item.startsWith("engine:")) {
+      if (seen.has(item)) return;
+      seen.add(item);
+      result.push(item);
+      hasEngineItems = true;
+      return;
+    }
+    if (!items.includes(item)) return;
+    if (seen.has(item)) return;
+    seen.add(item);
+    result.push(item);
+  });
+  if (!hasEngineItems && !seen.has("engines")) {
+    result.push("engines");
+    seen.add("engines");
+  }
+  items.forEach((item) => {
+    if (item === "more") return;
+    if (!seen.has(item)) result.push(item);
+  });
+  return result;
+}
+
 async function loadEngines() {
   const result = await chrome.storage.sync.get(["engines", "settings"]);
   const engines = Array.isArray(result.engines) ? result.engines : [];
   const settings = result.settings || {};
   maxButtons = Number.isFinite(settings.maxButtons) ? settings.maxButtons : 3;
   if (maxButtons < 1) maxButtons = 1;
-  window.__mesFloatPosition = settings.floatPosition || "top";
-  uiLang = settings.lang || "zh";
-  translateProvider = settings.translateProvider || "google";
+      window.__mesFloatPosition = settings.floatPosition || "top";
+      uiLang = settings.lang || "zh";
+      translateProvider = settings.translateProvider || "google";
+      floatOrder = normalizeFloatOrder(settings.floatOrder || DEFAULT_FLOAT_ORDER);
   const timeoutSec = Number.isFinite(settings.floatTimeout) ? settings.floatTimeout : 5;
   floatTimeoutMs = Math.max(1000, timeoutSec * 1000);
   enginesCache = engines.filter((e) => e && e.name && e.template);
@@ -87,63 +120,73 @@ function renderButtons(selectionText) {
   if (!floatEl) floatEl = createFloat();
   floatEl.innerHTML = "";
   const engines = getTopEngines();
+  const remaining = enginesCache.slice(engines.length);
+  const renderedEngines = new Set();
 
-  const copyBtn = document.createElement("button");
-  copyBtn.type = "button";
-  copyBtn.textContent = t("copy");
-  copyBtn.addEventListener("click", async (event) => {
-    event.stopPropagation();
-    try {
-      await navigator.clipboard.writeText(selectionText);
-    } catch (err) {
-      const textarea = document.createElement("textarea");
-      textarea.value = selectionText;
-      textarea.style.position = "fixed";
-      textarea.style.left = "-9999px";
-      document.body.appendChild(textarea);
-      textarea.select();
-      document.execCommand("copy");
-      textarea.remove();
-    }
-    clearFloat();
-  });
-  floatEl.appendChild(copyBtn);
+  const appendCopy = () => {
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.textContent = t("copy");
+    copyBtn.addEventListener("click", async (event) => {
+      event.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(selectionText);
+      } catch (err) {
+        const textarea = document.createElement("textarea");
+        textarea.value = selectionText;
+        textarea.style.position = "fixed";
+        textarea.style.left = "-9999px";
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand("copy");
+        textarea.remove();
+      }
+      clearFloat();
+    });
+    floatEl.appendChild(copyBtn);
+  };
 
-  engines.forEach((engine) => {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.textContent = engine.name;
-    btn.addEventListener("click", (event) => {
+  const appendEngines = () => {
+    engines.forEach((engine, idx) => {
+      if (renderedEngines.has(idx)) return;
+      renderedEngines.add(idx);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = engine.name;
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const query = encodeURIComponent(selectionText);
+        const url = engine.template.replace(/%s/g, query);
+        chrome.runtime.sendMessage({ type: "open-url", url });
+      });
+      floatEl.appendChild(btn);
+    });
+  };
+
+  const appendTranslate = () => {
+    const translateBtn = document.createElement("button");
+    translateBtn.type = "button";
+    translateBtn.textContent = t("translate");
+    translateBtn.addEventListener("click", (event) => {
       event.stopPropagation();
       const query = encodeURIComponent(selectionText);
-      const url = engine.template.replace(/%s/g, query);
+      const hasCJK = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(selectionText);
+      const targetLang = hasCJK ? "en" : "zh-CN";
+      let url = "";
+      if (translateProvider === "baidu") {
+        url = `https://fanyi.baidu.com/#auto/${encodeURIComponent(targetLang)}/${query}`;
+      } else if (translateProvider === "bing") {
+        url = `https://www.bing.com/translator?from=auto&to=${encodeURIComponent(targetLang)}&text=${query}`;
+      } else {
+        url = `https://translate.google.com/?sl=auto&tl=${encodeURIComponent(targetLang)}&text=${query}&op=translate`;
+      }
       chrome.runtime.sendMessage({ type: "open-url", url });
     });
-    floatEl.appendChild(btn);
-  });
+    floatEl.appendChild(translateBtn);
+  };
 
-  const translateBtn = document.createElement("button");
-  translateBtn.type = "button";
-  translateBtn.textContent = t("translate");
-  translateBtn.addEventListener("click", (event) => {
-    event.stopPropagation();
-    const query = encodeURIComponent(selectionText);
-    const hasCJK = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(selectionText);
-    const targetLang = hasCJK ? "en" : "zh-CN";
-    let url = "";
-    if (translateProvider === "baidu") {
-      url = `https://fanyi.baidu.com/#auto/${encodeURIComponent(targetLang)}/${query}`;
-    } else if (translateProvider === "bing") {
-      url = `https://www.bing.com/translator?from=auto&to=${encodeURIComponent(targetLang)}&text=${query}`;
-    } else {
-      url = `https://translate.google.com/?sl=auto&tl=${encodeURIComponent(targetLang)}&text=${query}&op=translate`;
-    }
-    chrome.runtime.sendMessage({ type: "open-url", url });
-  });
-  floatEl.appendChild(translateBtn);
-
-  const remaining = enginesCache.slice(engines.length);
-  if (remaining.length) {
+  const appendMore = () => {
+    if (!remaining.length) return;
     const moreWrap = document.createElement("div");
     moreWrap.className = "mes-more";
     const moreBtn = document.createElement("button");
@@ -188,8 +231,33 @@ function renderButtons(selectionText) {
     });
     moreWrap.appendChild(moreBtn);
     floatEl.appendChild(moreWrap);
-  }
+  };
 
+  normalizeFloatOrder(floatOrder).forEach((item) => {
+    if (item === "copy") appendCopy();
+    if (item === "translate") appendTranslate();
+    if (item === "engines") appendEngines();
+    if (typeof item === "string" && item.startsWith("engine:")) {
+      const idx = Number(item.slice("engine:".length));
+      if (!Number.isFinite(idx) || idx < 0 || idx >= enginesCache.length) return;
+      if (idx >= maxButtons) return;
+      if (renderedEngines.has(idx)) return;
+      const engine = enginesCache[idx];
+      if (!engine) return;
+      renderedEngines.add(idx);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = engine.name;
+      btn.addEventListener("click", (event) => {
+        event.stopPropagation();
+        const query = encodeURIComponent(selectionText);
+        const url = engine.template.replace(/%s/g, query);
+        chrome.runtime.sendMessage({ type: "open-url", url });
+      });
+      floatEl.appendChild(btn);
+    }
+  });
+  appendMore();
 }
 
 function positionFloat(rect) {
